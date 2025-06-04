@@ -11,8 +11,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  String _userName = 'Admin';
-  String _userEmail = '';
+  String _userName = 'Loading...';
+  String _userEmail = 'Loading...';
 
   @override
   void initState() {
@@ -21,12 +21,47 @@ class _HomePageState extends State<HomePage> {
   }
 
   _loadUserData() async {
-    Map<String, dynamic>? userData = await ApiService.getUserData();
+    try {
+      // Debug: Cek apakah user sudah login
+      bool isLoggedIn = await ApiService.isLoggedIn();
+      print('Is logged in: $isLoggedIn');
+      
+      // Debug: Cek token
+      String? token = await ApiService.getAuthToken();
+      print('Token: ${token?.substring(0, 20)}...'); // Tampilkan sebagian token saja
+      
+      // Ambil data user dari SharedPreferences
+      Map<String, dynamic>? userData = await ApiService.getUserData();
+      print('User data from SharedPreferences: $userData');
 
-    if (userData != null) {
+      if (userData != null) {
+        setState(() {
+          // Coba berbagai kemungkinan struktur data
+          _userName = userData['name'] ?? 
+                     userData['username'] ?? 
+                     userData['fullName'] ?? 
+                     userData['full_name'] ?? 
+                     'Admin';
+          
+          _userEmail = userData['email'] ?? 
+                      userData['email_address'] ?? 
+                      '';
+        });
+        
+        print('Final userName: $_userName');
+        print('Final userEmail: $_userEmail');
+      } else {
+        print('userData is null');
+        setState(() {
+          _userName = '';
+          _userEmail = '';
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
       setState(() {
-        _userName = userData['name'] ?? 'Admin';
-        _userEmail = userData['email'] ?? '';
+        _userName = 'Admin';
+        _userEmail = '';
       });
     }
   }
@@ -108,6 +143,11 @@ class _HomePageState extends State<HomePage> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _loadUserData, // Tombol refresh untuk debug
+            tooltip: 'Refresh Data',
+          ),
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: _logout,
@@ -207,7 +247,7 @@ class _HomePageState extends State<HomePage> {
                         color: Colors.white,
                       ),
                     ),
-                    if (_userEmail.isNotEmpty)
+                    if (_userEmail.isNotEmpty && _userEmail != 'Loading...')
                       Text(
                         _userEmail,
                         style: TextStyle(fontSize: 16, color: Colors.white70),

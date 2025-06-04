@@ -20,17 +20,71 @@ class ApiService {
       );
 
       final responseData = json.decode(response.body);
+      print('Login response: $responseData'); // Debug log
 
       if (response.statusCode == 200) {
-        // Simpan token dan data user ke shared preferences
         SharedPreferences prefs = await SharedPreferences.getInstance();
         
-        if (responseData['token'] != null) {
-          await prefs.setString('auth_token', responseData['token']);
+        // Simpan token - berdasarkan struktur response sebenarnya
+        String? token;
+        if (responseData['data'] != null && responseData['data']['token'] != null) {
+          token = responseData['data']['token'];
+        } else if (responseData['token'] != null) {
+          token = responseData['token'];
         }
-        if (responseData['user'] != null) {
-          await prefs.setString('user_data', json.encode(responseData['user']));
+        
+        if (token != null) {
+          await prefs.setString('auth_token', token);
+          print('Token saved successfully: ${token.substring(0, 20)}...');
+        } else {
+          print('Token not found in response!');
         }
+        
+        // Buat API call kedua untuk mendapatkan data user menggunakan token
+        Map<String, dynamic> userData = {};
+        
+        if (token != null) {
+          try {
+            final userResponse = await http.get(
+              Uri.parse('$baseUrl/admin/login'), 
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
+            );
+
+            if (userResponse.statusCode == 200) {
+              final userResponseData = json.decode(userResponse.body);
+              print('User profile response: $userResponseData');
+              
+              if (userResponseData['data'] != null) {
+                userData = userResponseData['data'];
+              } else if (userResponseData['user'] != null) {
+                userData = userResponseData['user'];
+              } else {
+                userData = userResponseData;
+              }
+            }
+          } catch (e) {
+            print('Error fetching user profile: $e');
+          }
+        }
+        
+        // Jika tidak berhasil mendapat data user dari API, buat default
+        if (userData.isEmpty) {
+          userData = {
+            'name': 'Admin', // Default name yang lebih deskriptif
+            'email': email,
+          };
+        }
+        
+        // Pastikan email ada dalam userData
+        if (userData['email'] == null) {
+          userData['email'] = email;
+        }
+        
+        await prefs.setString('user_data', json.encode(userData));
+        print('User data saved: $userData');
 
         return {
           'success': true,
@@ -44,6 +98,7 @@ class ApiService {
         };
       }
     } catch (e) {
+      print('Login error: $e');
       return {
         'success': false,
         'message': 'Terjadi kesalahan koneksi. Silakan coba lagi.',
@@ -133,25 +188,45 @@ class ApiService {
 
   // Get Auth Token
   static Future<String?> getAuthToken() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('auth_token');
+      print('Retrieved token: ${token?.substring(0, 20) ?? 'null'}...');
+      return token;
+    } catch (e) {
+      print('Error getting auth token: $e');
+      return null;
+    }
   }
 
   // Check if user is logged in
   static Future<bool> isLoggedIn() async {
     String? token = await getAuthToken();
-    return token != null && token.isNotEmpty;
+    bool loggedIn = token != null && token.isNotEmpty;
+    print('Is logged in: $loggedIn');
+    return loggedIn;
   }
 
   // Get User Data
   static Future<Map<String, dynamic>?> getUserData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? userData = prefs.getString('user_data');
-    
-    if (userData != null && userData.isNotEmpty) {
-      return json.decode(userData);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? userData = prefs.getString('user_data');
+      
+      print('Raw user data from SharedPreferences: $userData');
+      
+      if (userData != null && userData.isNotEmpty) {
+        Map<String, dynamic> decodedData = json.decode(userData);
+        print('Decoded user data: $decodedData');
+        return decodedData;
+      }
+      
+      print('No user data found');
+      return null;
+    } catch (e) {
+      print('Error getting user data: $e');
+      return null;
     }
-    return null;
   }
 
   // Clear All Data
@@ -159,6 +234,21 @@ class ApiService {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
+    print('All data cleared from SharedPreferences');
+  }
+
+  // Debug method - untuk melihat semua data yang tersimpan
+  static Future<void> debugSharedPreferences() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    Set<String> keys = prefs.getKeys();
+    print('=== SharedPreferences Debug ===');
+    for (String key in keys) {
+      if (key.contains('auth') || key.contains('user')) {
+        String? value = prefs.getString(key);
+        print('$key: $value');
+      }
+    }
+    print('=== End Debug ===');
   }
 
   // ==================== MEMBER CRUD METHODS ====================
