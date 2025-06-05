@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:project_akhir_tpm/services/api_service.dart';
 import 'loginpage.dart';
-import 'memberpage.dart';
+import 'package:project_akhir_tpm/pages/memberpage.dart';
 import 'itempage.dart';
-import 'presensipage.dart';
+//import 'presensipage.dart';
 
 class HomePage extends StatefulWidget {
   @override
@@ -25,11 +25,13 @@ class _HomePageState extends State<HomePage> {
       // Debug: Cek apakah user sudah login
       bool isLoggedIn = await ApiService.isLoggedIn();
       print('Is logged in: $isLoggedIn');
-      
+
       // Debug: Cek token
       String? token = await ApiService.getAuthToken();
-      print('Token: ${token?.substring(0, 20)}...'); // Tampilkan sebagian token saja
-      
+      print(
+        'Token: ${token?.substring(0, 20)}...',
+      ); // Tampilkan sebagian token saja
+
       // Ambil data user dari SharedPreferences
       Map<String, dynamic>? userData = await ApiService.getUserData();
       print('User data from SharedPreferences: $userData');
@@ -37,17 +39,16 @@ class _HomePageState extends State<HomePage> {
       if (userData != null) {
         setState(() {
           // Coba berbagai kemungkinan struktur data
-          _userName = userData['name'] ?? 
-                     userData['username'] ?? 
-                     userData['fullName'] ?? 
-                     userData['full_name'] ?? 
-                     'Admin';
-          
-          _userEmail = userData['email'] ?? 
-                      userData['email_address'] ?? 
-                      '';
+          _userName =
+              userData['name'] ??
+              userData['username'] ??
+              userData['fullName'] ??
+              userData['full_name'] ??
+              'Admin';
+
+          _userEmail = userData['email'] ?? userData['email_address'] ?? '';
         });
-        
+
         print('Final userName: $_userName');
         print('Final userEmail: $_userEmail');
       } else {
@@ -69,48 +70,50 @@ class _HomePageState extends State<HomePage> {
   _logout() async {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Konfirmasi Logout'),
-        content: Text('Apakah Anda yakin ingin keluar?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Batal'),
+      builder:
+          (ctx) => AlertDialog(
+            title: Text('Konfirmasi Logout'),
+            content: Text('Apakah Anda yakin ingin keluar?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text('Batal'),
+              ),
+              TextButton(
+                onPressed: () async {
+                  Navigator.of(ctx).pop();
+
+                  // Show loading
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder:
+                        (ctx) => Center(child: CircularProgressIndicator()),
+                  );
+
+                  // Call logout API
+                  await ApiService.logout();
+
+                  // Hide loading
+                  Navigator.of(context).pop();
+
+                  // Arahkan ke login page
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => LoginPage()),
+                  );
+                },
+                child: Text('Logout', style: TextStyle(color: Colors.red)),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-
-              // Show loading
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (ctx) => Center(child: CircularProgressIndicator()),
-              );
-
-              // Call logout API
-              await ApiService.logout();
-
-              // Hide loading
-              Navigator.of(context).pop();
-
-              // Arahkan ke login page
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => LoginPage()),
-              );
-            },
-            child: Text('Logout', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
   }
 
   // Fungsi untuk navigasi ke halaman lain
   void _navigateToPage(String pageName) {
-    Navigator.of(context).pop(); // Tutup drawer
-    
+    // Navigator.of(context).pop(); // Tutup drawer
+
     // Navigasi berdasarkan nama halaman
     switch (pageName) {
       case 'Member':
@@ -119,12 +122,12 @@ class _HomePageState extends State<HomePage> {
           MaterialPageRoute(builder: (context) => MemberPage()),
         );
         break;
-      // case 'Item':
-      //   Navigator.push(
-      //     context,
-      //     MaterialPageRoute(builder: (context) => ItemPage()),
-      //   );
-      //   break;
+      case 'Item':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ItemPage()),
+        );
+        break;
       // case 'Presensi':
       //   Navigator.push(
       //     context,
@@ -309,7 +312,9 @@ class _HomePageState extends State<HomePage> {
                               color: Colors.grey,
                               onTap: () {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Settings coming soon!')),
+                                  SnackBar(
+                                    content: Text('Settings coming soon!'),
+                                  ),
                                 );
                               },
                             ),

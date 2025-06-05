@@ -1,324 +1,247 @@
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:project_akhir_tpm/services/api_service.dart';
-import 'package:project_akhir_tpm/models/member.dart';
-import 'package:project_akhir_tpm/models/boxes.dart';
+import 'package:project_akhir_tpm/pages/create_memberpage.dart';
+//import 'package:project_akhir_tpm/services/api_service.dart';
+import 'package:project_akhir_tpm/services/member_service.dart';
+import 'package:project_akhir_tpm/models/member_model.dart';
+import 'package:project_akhir_tpm/pages/edit_memberpage.dart';
 
 class MemberPage extends StatefulWidget {
+  const MemberPage({super.key});
   @override
   _MemberPageState createState() => _MemberPageState();
 }
 
 class _MemberPageState extends State<MemberPage> {
-  late Box<Member> memberBox;
-  bool _isLoading = true;
-
   @override
-  void initState() {
-    super.initState();
-    _initHive();
-  }
-
-  Future<void> _initHive() async {
-    memberBox = await Hive.openBox<Member>(HiveBox.member);
-    setState(() {
-      _isLoading = false;
-    });
-  }
-
-  // Create - Hanya simpan ke Hive
-  Future<void> _createMember() async {
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => _MemberFormDialog(),
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          title: Text("Halaman Member"),
+        ),
+        body: Padding(padding: EdgeInsets.all(20), child: _membersContainer()),
+      ),
     );
+  }
 
-    if (result != null) {
-      final member = Member(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        nama: result['nama']!,
-        nik: result['nik']!,
-        alamat: result['alamat']!,
-      );
+  Widget _membersContainer() {
+    /*
+      FutureBuilder adalah widget yang membantu menangani proses asynchronous
+      Proses async adalah proses yang membutuhkan waktu. (ex: mengambil data dari API)
 
-      await memberBox.add(member);
-      setState(() {});
+      FutureBuilder itu butuh 2 properti, yaitu future dan builder.
+      Properti future adalah proses async yg akan dilakukan.
+      Properti builder itu tampilan yg akan ditampilkan berdasarkan proses future tadi.
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Member berhasil ditambahkan'), backgroundColor: Colors.green),
-      );
-    }
-  }
-
-  // Update - API + Hive
-  Future<void> _updateMember(Member member, int index) async {
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => _MemberFormDialog(
-        initialData: {
-          'nama': member.nama,
-          'nik': member.nik,
-          'alamat': member.alamat,
-        },
-      ),
-    );
-
-    if (result != null) {
-      // Show loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Center(child: CircularProgressIndicator()),
-      );
-
-      try {
-        final apiResult = await ApiService.updateMember(
-          id: member.id!,
-          nama: result['nama']!,
-          nik: result['nik']!,
-          alamat: result['alamat']!,
-        );
-
-        Navigator.of(context).pop(); // Hide loading
-
-        if (apiResult['success']) {
-          // Update di Hive juga
-          final updatedMember = Member(
-            id: member.id,
-            nama: result['nama']!,
-            nik: result['nik']!,
-            alamat: result['alamat']!,
-          );
-          await memberBox.putAt(index, updatedMember);
-          setState(() {});
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Member berhasil diupdate'), backgroundColor: Colors.green),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(apiResult['message']), backgroundColor: Colors.red),
-          );
+      Properti builder itu pada umumnya ada 2 status, yaitu hasError dan hasData.
+      Status hasError digunakan untuk mengecek apakah terjadi kesalahan (misal: jaringan error).
+      Status hasData digunakan untuk mengecek apakah data sudah siap.
+    */
+    return FutureBuilder(
+      future: MemberService.getMember(),
+      builder: (context, snapshot) {
+        // Jika error (gagal memanggil API), maka tampilkan teks error
+        if (snapshot.hasError) {
+          return Text("Error: ${snapshot.error.toString()}");
         }
-      } catch (e) {
-        Navigator.of(context).pop(); // Hide loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal update member'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
+        // Jika berhasil memanggil API
+        else if (snapshot.hasData) {
+          /*
+            Baris 1:
+            Untuk mengambil response dari API, kita bisa mengakses "snapshot.data"
+            Nah, snapshot.data tadi itu bentuknya masih berupa Map<String, dynamic>.
 
-  // Delete - API + Hive
-  Future<void> _deleteMember(Member member, int index) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Hapus Member'),
-        content: Text('Yakin ingin menghapus ${member.nama}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Batal'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Hapus', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
+            Untuk memudahkan pengolahan data, 
+            kita perlu mengonversi data JSON tersebut ke dalam 
+            model Dart (ClothingModel) untuk memudahkan pengolahan data.
+            Setelah itu, hasil konversinya disimpan ke dalam variabel bernama "response".
 
-    if (confirm == true) {
-      // Show loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => Center(child: CircularProgressIndicator()),
-      );
+            Baris 2:
+            Setelah dikonversi, tampilkan data tadi di widget bernama "_clothingList()"
+            dengan mengirimkan data tadi sebagai parameternya.
 
-      try {
-        final apiResult = await ApiService.deleteMember(member.id!);
+            Kenapa yg dikirim "response.data" bukan "response" aja?
+            Karena kalau kita lihat di dokumentasi API, bentuk response-nya itu kaya gini:
+            {
+              "status": ...
+              "message": ...
+              "data": [
+                {
+                  "id": 1,
+                  "name": "rafli",
+                  "price": 12000,
+                  ...
+                },
+                ...
+              ]
+            }
 
-        Navigator.of(context).pop(); // Hide loading
-
-        if (apiResult['success']) {
-          // Hapus dari Hive juga
-          await memberBox.deleteAt(index);
-          setState(() {});
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Member berhasil dihapus'), backgroundColor: Colors.green),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(apiResult['message']), backgroundColor: Colors.red),
-          );
+            Nah, kita itu cuman mau ngambil properti "data" doang, 
+            kita gamau ngambil properti "status" dan "message",
+            makanya yg kita kirim ke Widget _clothingList itu response.data
+          */
+          MemberModel response = MemberModel.fromJson(snapshot.data!);
+          return _memberList(context, response.data!);
         }
-      } catch (e) {
-        Navigator.of(context).pop(); // Hide loading
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal hapus member'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: Text('Data Member')),
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Data Member'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
-      body: ValueListenableBuilder(
-        valueListenable: memberBox.listenable(),
-        builder: (context, Box<Member> box, _) {
-          if (box.values.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('Belum ada data member', style: TextStyle(fontSize: 16)),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: EdgeInsets.all(16),
-            itemCount: box.length,
-            itemBuilder: (context, index) {
-              final member = box.getAt(index)!;
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.blue,
-                    child: Text(
-                      member.nama.substring(0, 1).toUpperCase(),
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                  title: Text(member.nama),
-                  subtitle: Text('NIK: ${member.nik}\nAlamat: ${member.alamat}'),
-                  isThreeLine: true,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _updateMember(member, index),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteMember(member, index),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createMember,
-        backgroundColor: Colors.blue,
-        child: Icon(Icons.add, color: Colors.white),
-      ),
+        // Jika masih loading, tampilkan loading screen di tengah layar
+        else {
+          return const Center(child: CircularProgressIndicator());
+        }
+      },
     );
   }
-}
 
-class _MemberFormDialog extends StatefulWidget {
-  final Map<String, String>? initialData;
-
-  const _MemberFormDialog({this.initialData});
-
-  @override
-  _MemberFormDialogState createState() => _MemberFormDialogState();
-}
-
-class _MemberFormDialogState extends State<_MemberFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _namaController = TextEditingController();
-  final _nikController = TextEditingController();
-  final _alamatController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.initialData != null) {
-      _namaController.text = widget.initialData!['nama'] ?? '';
-      _nikController.text = widget.initialData!['nik'] ?? '';
-      _alamatController.text = widget.initialData!['alamat'] ?? '';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.initialData == null ? 'Tambah Member' : 'Edit Member'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _namaController,
-              decoration: InputDecoration(labelText: 'Nama'),
-              validator: (value) => value?.isEmpty == true ? 'Nama harus diisi' : null,
-            ),
-            TextFormField(
-              controller: _nikController,
-              decoration: InputDecoration(labelText: 'NIK'),
-              keyboardType: TextInputType.number,
-              validator: (value) => value?.isEmpty == true ? 'NIK harus diisi' : null,
-            ),
-            TextFormField(
-              controller: _alamatController,
-              decoration: InputDecoration(labelText: 'Alamat'),
-              validator: (value) => value?.isEmpty == true ? 'Alamat harus diisi' : null,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text('Batal'),
-        ),
+  Widget _memberList(BuildContext context, List<Member> members) {
+    return ListView(
+      children: [
         ElevatedButton(
           onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.of(context).pop({
-                'nama': _namaController.text.trim(),
-                'nik': _nikController.text.trim(),
-                'alamat': _alamatController.text.trim(),
-              });
-            }
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (BuildContext context) => CreateMemberPage(),
+              ),
+            );
           },
-          child: Text(widget.initialData == null ? 'Tambah' : 'Update'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+          ),
+          child: Text("Add Member"),
         ),
+        // Tombol add clothes
+        SizedBox(height: 16),
+
+        // Tampilkan tiap-tiap data pakaian dengan melakukan perulangan pada variabel "clothes".
+        // Simpan data tiap pakaian ke dalam variabel "clothing"
+        for (var member in members)
+          Container(
+            margin: EdgeInsets.only(bottom: 14),
+            child: InkWell(
+              onTap: () {
+                /*
+                  Pindah ke halaman DetailPage() (detail_page.dart)
+                  Karena kita mau menampilkan detail pakaian yg dipilih berdasarkan id-nya, 
+                  maka beri parameter berupa id yg dipilih
+                */
+              },
+              child: Container(
+                // Untuk keperluan tampilan doang (opsional)
+                padding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ), // <- Ngasih Padding
+                // Ngasi border
+                decoration: BoxDecoration(
+                  border: Border.all(width: 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                // Nampilin datanya dalam bentuk layout kolom (ke bawah)
+                child: Column(
+                  // Cross Axis Alignment "Stretch" berfungsi supaya teks menjadi rata kiri
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Tampilkan nama, email, gender dalam bentuk teks
+                    Text(
+                      member.nama!,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(member.nik!),
+                    Text(member.alamat!),
+
+                    SizedBox(height: 4),
+                    Row(children: [
+                       
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 8,
+                    ), // <- Beri jarak buat tombol di bawah
+                    /*
+                      Supaya tombol edit, delete, dan detail itu tidak ke bawah
+                      melainkan menyamping, maka gunakan layout Row
+                    */
+                    Row(
+                      spacing: 8, // <- Beri jarak antar widget sebanyak 8dp
+                      children: [
+                        // Tombol edit
+                        IconButton(
+                          onPressed: () {
+                            /*
+                              Pindah ke halaman EdiPage() (edit_page.dart)
+                              Karena kita mau mengubah data yg dipilih berdasarkan id-nya, 
+                              maka beri parameter berupa id yg dipilih
+                            */
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder:
+                                    (BuildContext context) =>
+                                        EditMemberPage(id: member.id!),
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.edit),
+                        ),
+                        // Tombol delete
+                        IconButton(
+                          onPressed: () {
+                            /*
+                              Karena kita mau menghapus berdasarkan id-nya, maka
+                              jalankan fungsi _delete() dengan memberi
+                              parameter berupa id yg dipilih
+                            */
+                            _delete(member.id!);
+                          },
+                          color: Colors.red,
+                          icon: Icon(Icons.delete),
+                        ),
+                        // Tombol detail
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
 
-  @override
-  void dispose() {
-    _namaController.dispose();
-    _nikController.dispose();
-    _alamatController.dispose();
-    super.dispose();
+  void _delete(int id) async {
+    try {
+      /*
+        Lakukan pemanggilan API delete, setelah itu
+        simpan ke dalam variabel bernama "response"
+      */
+      final response = await MemberService.deleteMember(id);
+
+      /*
+        Jika response status "Success", 
+        maka tampilkan snackbar yg bertuliskan "Clothes Removed"
+      */
+      if (response["status"] == 200) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Member Removed")));
+
+        // Refresh tampilan (Supaya data yg dihapus ilang dari layar)
+        setState(() {});
+      } else {
+        // Jika response status "Error", maka kode akan dilempar ke bagian catch
+        throw Exception(response["message"]);
+      }
+    } catch (error) {
+      /*
+        Jika data gagal dihapus, 
+        maka tampilkan snackbar dengan tulisan "Gagal: error-nya apa"
+      */
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Gagal: $error")));
+    }
   }
 }

@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:project_akhir_tpm/models/item.dart';
+import 'package:project_akhir_tpm/models/boxes.dart';
 import 'package:project_akhir_tpm/services/api_service.dart';
 import 'package:project_akhir_tpm/pages/loginpage.dart';
 import 'package:project_akhir_tpm/pages/homepage.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  Hive.registerAdapter(ItemAdapter());
+  await Hive.openBox<Item>(HiveBox.item);
   runApp(MyApp());
 }
 
@@ -36,10 +43,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   _checkLoginStatus() async {
     bool isLoggedIn = await ApiService.isLoggedIn();
-    
+
     // Delay untuk splash screen effect
     await Future.delayed(Duration(seconds: 2));
-    
+
     if (isLoggedIn) {
       // User sudah login, arahkan ke homepage
       Navigator.pushReplacement(
@@ -63,14 +70,10 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.business,
-              size: 80,
-              color: Colors.white,
-            ),
+            Icon(Icons.business, size: 80, color: Colors.white),
             SizedBox(height: 20),
             Text(
-              'TCC App',
+              'SuRFIS',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -78,9 +81,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             SizedBox(height: 20),
-            CircularProgressIndicator(
-              color: Colors.white,
-            ),
+            CircularProgressIndicator(color: Colors.white),
           ],
         ),
       ),

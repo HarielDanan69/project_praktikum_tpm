@@ -1,7 +1,7 @@
 import 'package:hive/hive.dart';
 part 'item.g.dart';
 
-@HiveType(typeId: 1)
+@HiveType(typeId: 0)
 class Item extends HiveObject {
   @HiveField(0)
   String? id;
@@ -12,9 +12,5 @@ class Item extends HiveObject {
   @HiveField(2)
   final String item_name;
 
-  Item({
-    this.id,
-    required this.price,
-    required this.item_name,
-  });
+  Item({this.id, required this.price, required this.item_name});
 }

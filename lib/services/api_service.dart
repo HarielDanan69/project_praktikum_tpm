@@ -3,20 +3,19 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://tcc-end-be-425714712446.us-central1.run.app/api/admin';
-  
+  static const String baseUrl =
+      'https://tcc-end-be-425714712446.us-central1.run.app/api/admin';
+
   // Login Method
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login(
+    String email,
+    String password,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/login'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'email': email,
-          'password': password,
-        }),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'password': password}),
       );
 
       final responseData = json.decode(response.body);
@@ -24,29 +23,30 @@ class ApiService {
 
       if (response.statusCode == 200) {
         SharedPreferences prefs = await SharedPreferences.getInstance();
-        
+
         // Simpan token - berdasarkan struktur response sebenarnya
         String? token;
-        if (responseData['data'] != null && responseData['data']['token'] != null) {
+        if (responseData['data'] != null &&
+            responseData['data']['token'] != null) {
           token = responseData['data']['token'];
         } else if (responseData['token'] != null) {
           token = responseData['token'];
         }
-        
+
         if (token != null) {
           await prefs.setString('auth_token', token);
           print('Token saved successfully: ${token.substring(0, 20)}...');
         } else {
           print('Token not found in response!');
         }
-        
+
         // Buat API call kedua untuk mendapatkan data user menggunakan token
         Map<String, dynamic> userData = {};
-        
+
         if (token != null) {
           try {
             final userResponse = await http.get(
-              Uri.parse('$baseUrl/admin/login'), 
+              Uri.parse('$baseUrl/admin/login'),
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer $token',
@@ -56,7 +56,7 @@ class ApiService {
             if (userResponse.statusCode == 200) {
               final userResponseData = json.decode(userResponse.body);
               print('User profile response: $userResponseData');
-              
+
               if (userResponseData['data'] != null) {
                 userData = userResponseData['data'];
               } else if (userResponseData['user'] != null) {
@@ -69,7 +69,7 @@ class ApiService {
             print('Error fetching user profile: $e');
           }
         }
-        
+
         // Jika tidak berhasil mendapat data user dari API, buat default
         if (userData.isEmpty) {
           userData = {
@@ -77,12 +77,12 @@ class ApiService {
             'email': email,
           };
         }
-        
+
         // Pastikan email ada dalam userData
         if (userData['email'] == null) {
           userData['email'] = email;
         }
-        
+
         await prefs.setString('user_data', json.encode(userData));
         print('User data saved: $userData');
 
@@ -94,7 +94,8 @@ class ApiService {
       } else {
         return {
           'success': false,
-          'message': responseData['message'] ?? 'Login gagal. Silakan coba lagi.',
+          'message':
+              responseData['message'] ?? 'Login gagal. Silakan coba lagi.',
         };
       }
     } catch (e) {
@@ -107,18 +108,16 @@ class ApiService {
   }
 
   // Register Method
-  static Future<Map<String, dynamic>> register(String name, String email, String password) async {
+  static Future<Map<String, dynamic>> register(
+    String name,
+    String email,
+    String password,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/register'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'name': name,
-          'email': email,
-          'password': password,
-        }),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': name, 'email': email, 'password': password}),
       );
 
       final responseData = json.decode(response.body);
@@ -132,7 +131,8 @@ class ApiService {
       } else {
         return {
           'success': false,
-          'message': responseData['message'] ?? 'Registrasi gagal. Silakan coba lagi.',
+          'message':
+              responseData['message'] ?? 'Registrasi gagal. Silakan coba lagi.',
         };
       }
     } catch (e) {
@@ -178,11 +178,8 @@ class ApiService {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.remove('auth_token');
       await prefs.remove('user_data');
-      
-      return {
-        'success': true,
-        'message': 'Logout berhasil',
-      };
+
+      return {'success': true, 'message': 'Logout berhasil'};
     }
   }
 
@@ -212,15 +209,15 @@ class ApiService {
     try {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? userData = prefs.getString('user_data');
-      
+
       print('Raw user data from SharedPreferences: $userData');
-      
+
       if (userData != null && userData.isNotEmpty) {
         Map<String, dynamic> decodedData = json.decode(userData);
         print('Decoded user data: $decodedData');
         return decodedData;
       }
-      
+
       print('No user data found');
       return null;
     } catch (e) {
@@ -249,164 +246,5 @@ class ApiService {
       }
     }
     print('=== End Debug ===');
-  }
-
-  // ==================== MEMBER CRUD METHODS ====================
-
-  // Get All Members
-  static Future<Map<String, dynamic>> getMembers() async {
-    try {
-      String? token = await getAuthToken();
-      
-      final response = await http.get(
-        Uri.parse('$baseUrl/member/get'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
-
-      final responseData = json.decode(response.body);
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'data': responseData,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': responseData['message'] ?? 'Gagal mengambil data member',
-        };
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Terjadi kesalahan koneksi. Silakan coba lagi.',
-      };
-    }
-  }
-
-  // Create Member
-  static Future<Map<String, dynamic>> createMember({
-    required String nama,
-    required String nik,
-    required String alamat,
-  }) async {
-    try {
-      String? token = await getAuthToken();
-      
-      final response = await http.post(
-        Uri.parse('$baseUrl/member/create'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: json.encode({
-          'nama': nama,
-          'nik': nik,
-          'alamat': alamat,
-        }),
-      );
-
-      final responseData = json.decode(response.body);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return {
-          'success': true,
-          'message': responseData['message'] ?? 'Member berhasil ditambahkan',
-          'data': responseData,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': responseData['message'] ?? 'Gagal menambahkan member',
-        };
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Terjadi kesalahan koneksi. Silakan coba lagi.',
-      };
-    }
-  }
-
-  // Update Member
-  static Future<Map<String, dynamic>> updateMember({
-    required String id,
-    required String nama,
-    required String nik,
-    required String alamat,
-  }) async {
-    try {
-      String? token = await getAuthToken();
-      
-      final response = await http.put(
-        Uri.parse('$baseUrl/member/update/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: json.encode({
-          'nama': nama,
-          'nik': nik,
-          'alamat': alamat,
-        }),
-      );
-
-      final responseData = json.decode(response.body);
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'message': responseData['message'] ?? 'Member berhasil diupdate',
-          'data': responseData,
-        };
-      } else {
-        return {
-          'success': false,
-          'message': responseData['message'] ?? 'Gagal mengupdate member',
-        };
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Terjadi kesalahan koneksi. Silakan coba lagi.',
-      };
-    }
-  }
-
-  // Delete Member
-  static Future<Map<String, dynamic>> deleteMember(String id) async {
-    try {
-      String? token = await getAuthToken();
-      
-      final response = await http.delete(
-        Uri.parse('$baseUrl/member/delete/$id'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-      );
-
-      final responseData = json.decode(response.body);
-
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'message': responseData['message'] ?? 'Member berhasil dihapus',
-        };
-      } else {
-        return {
-          'success': false,
-          'message': responseData['message'] ?? 'Gagal menghapus member',
-        };
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Terjadi kesalahan koneksi. Silakan coba lagi.',
-      };
-    }
   }
 }
